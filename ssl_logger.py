@@ -36,6 +36,7 @@ import argparse
 import os
 import platform
 import pprint
+import threading
 import random
 import signal
 import socket
@@ -49,6 +50,28 @@ try:
 except ImportError:
   pass
 
+def get_usb_iphone():
+  device_manager = frida.get_device_manager()
+  changed = threading.Event()
+
+  def on_changed():
+      changed.set()
+
+  device_manager.on('changed', on_changed)
+
+  device = None
+  while device is None:
+      devices = [dev for dev in device_manager.enumerate_devices() if dev.type == 'tether']
+      if len(devices) == 0:
+          print 'Waiting for USB device...'
+          changed.wait()
+      else:
+          device = devices[0]
+
+  device_manager.off('changed', on_changed)
+
+  return device
+
 
 _FRIDA_SCRIPT = """
   /**
@@ -61,8 +84,8 @@ _FRIDA_SCRIPT = """
     var resolver = new ApiResolver("module");
 
     var exps = [
-      ["*libssl*",
-        ["SSL_read", "SSL_write", "SSL_get_fd", "SSL_get_session",
+      ["*libboringssl*",
+        ["SSL_read", "SSL_write", "SSL_get_session",
         "SSL_SESSION_get_id"]],
       [Process.platform == "darwin" ? "*libsystem*" : "*libc*",
         ["getpeername", "getsockname", "ntohs", "ntohl"]]
@@ -113,8 +136,6 @@ _FRIDA_SCRIPT = """
       }
     }
 
-    SSL_get_fd = new NativeFunction(addresses["SSL_get_fd"], "int",
-      ["pointer"]);
     SSL_get_session = new NativeFunction(addresses["SSL_get_session"],
       "pointer", ["pointer"]);
     SSL_SESSION_get_id = new NativeFunction(addresses["SSL_SESSION_get_id"],
@@ -197,7 +218,7 @@ _FRIDA_SCRIPT = """
   {
     onEnter: function (args)
     {
-      var message = getPortsAndAddresses(SSL_get_fd(args[0]), true);
+      var message = getPortsAndAddresses(0, true);
       message["ssl_session_id"] = getSslSessionId(args[0]);
       message["function"] = "SSL_read";
       this.message = message;
@@ -218,7 +239,7 @@ _FRIDA_SCRIPT = """
   {
     onEnter: function (args)
     {
-      var message = getPortsAndAddresses(SSL_get_fd(args[0]), false);
+      var message = getPortsAndAddresses(0, false);
       message["ssl_session_id"] = getSslSessionId(args[0]);
       message["function"] = "SSL_write";
       send(message, Memory.readByteArray(args[1], parseInt(args[2])));
@@ -353,7 +374,8 @@ def ssl_log(process, pcap=None, verbose=False):
       log_pcap(pcap_file, p["ssl_session_id"], p["function"], p["src_addr"],
                p["src_port"], p["dst_addr"], p["dst_port"], data)
 
-  session = frida.attach(process)
+  device = get_usb_iphone()
+  session = device.attach(process)
 
   if pcap:
     pcap_file = open(pcap, "wb", 0)
