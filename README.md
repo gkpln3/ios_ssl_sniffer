@@ -7,6 +7,13 @@ Motified by Guy Kaplan to sniff the traffic of an external usb device.
 
 Setup
 -----
+
+### On the iPhone ###
+https://www.frida.re/docs/ios/#with-jailbreak
+> Start `Cydia` and add Frida’s repository by going to `Manage` -> `Sources` -> `Edit` -> Add and enter `https://build.frida.re`. You should now be able to find and install the `Frida` package which lets Frida inject JavaScript into apps running on your iOS device. This happens over USB, so you will need to have your USB cable handy, though there’s no need to plug it in just yet.
+
+
+### On Your PC ###
 You have to install frida first.
 ```bash
 pip install frida
