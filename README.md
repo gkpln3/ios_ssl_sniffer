@@ -16,13 +16,17 @@ https://www.frida.re/docs/ios/#with-jailbreak
 ### On Your PC ###
 You have to install frida first.
 ```bash
-pip install frida
+pip3 install frida frida-tools
 ```
-**Note this only works with python27**
+
+Search for the process you want to inject frida onto
+```bash
+frida-ps -U
+```
 
 run the command with
 ```bash
-python2 ssl_logger.py
+python3 ssl_logger.py [pid]
 ```
 
 Make sure your iDevice is connected using USB first.
